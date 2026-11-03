@@ -39,7 +39,8 @@ app.whenReady().then(async()=>{
   await refreshProviders();
   templates=new TemplateManager(path.join(here,'../templates'));inspector=new ProjectInspector();
   usageMonitor=new UsageMonitor(engine,{query,cliPath,cwd:app.getPath('temp'),env:process.env});
-  window=new BrowserWindow({width:1500,height:970,minWidth:1100,minHeight:740,title:'Studio Monitor',backgroundColor:'#101213',titleBarStyle:'hiddenInset',webPreferences:{preload:path.join(here,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true}});
+  if(process.platform==='darwin')app.dock?.setIcon(path.join(here,'../build-resources/icon.png'));
+  window=new BrowserWindow({icon:path.join(here,'../build-resources/icon.png'),width:1500,height:970,minWidth:1100,minHeight:740,title:'Studio Monitor',backgroundColor:'#101213',titleBarStyle:'hiddenInset',webPreferences:{preload:path.join(here,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true}});
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   window.webContents.on('will-navigate',(e)=>e.preventDefault());
   engine.on('state',state=>{if(window&&!window.isDestroyed())window.webContents.send('studio:state',state);});

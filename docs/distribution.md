@@ -79,3 +79,8 @@ foi impedido de iniciar por bloqueio de cobrança na conta. Os instaladores dess
 versão foram gerados localmente no macOS; o Windows é um cross-build e precisa
 de validação real no Windows. O workflow permanece disponível para builds nativos
 quando a conta for liberada.
+
+A release 0.1.2 acrescenta o ícone próprio. Os ícones finais PNG, ICO e ICNS estão
+versionados em build-resources. Para refazê-los a partir do PNG em um Mac, use
+`npm run build:icons`. O Windows usa edição de recursos nativa do electron-builder
+para aplicar ícone e versão; apenas a assinatura digital fica desabilitada.
