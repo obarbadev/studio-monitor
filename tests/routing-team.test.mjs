@@ -46,3 +46,13 @@ test('injects AGY workspace MCP without replacing existing connections and prese
 test('serializes generated definitions when two subagents use the same native provider concurrently',async t=>{
  const {engine}=await fixture(t);engine.nativeRunner=runner(codexEvents);await Promise.all([engine.team.spawn({role:'reviewer',provider:'codex',task:'Review architecture'}),engine.team.spawn({role:'reviewer',provider:'codex',task:'Review documentation'})]);await assert.rejects(engine.configure({provider:'gemini'}),/equipe/);await engine.team.drain();assert.equal(engine.team.list().length,2);assert.ok(engine.team.list().every(j=>j.status==='completed'));assert.ok(engine.state.agents.filter(a=>a.managed).every(a=>a.finishedAt));
 });
+
+test('edits fallback during a run while keeping its active route snapshot and applying changes to the next send',async t=>{
+ let entered,release,count=0;const ready=new Promise(r=>entered=r),gate=new Promise(r=>release=r);
+ const {engine}=await fixture(t,{query:async function*(){count++;yield {type:'system',subtype:'init',session_id:'11111111-1111-1111-1111-111111111111'};if(count===1){entered();await gate;}yield {type:'rate_limit_event',rate_limit_info:{status:'rejected'}};}});
+ const calls=[];engine.nativeRunner=options=>{calls.push(options.binary);return runner(codexEvents)();};
+ const first=engine.send('Run with the original routing');await ready;
+ const next={enabled:false,order:['claude','gemini','codex'],maxAgents:2,agents:{reviewer:{provider:'gemini',model:'new-model'}}};
+ await engine.configure({routingProfile:next});assert.deepEqual(routingProfile(engine.state),next);await assert.rejects(engine.configure({model:'opus'}),/Aguarde/);release();await first;
+ assert.deepEqual(calls,['/mock/codex']);assert.equal(engine.state.activeProvider,'codex');await engine.newSession();engine.state.accounts.forEach(a=>a.cooldownUntil=null);await engine.send('Use the updated disabled fallback');assert.deepEqual(calls,['/mock/codex']);assert.equal(engine.state.runStatus,'limited');assert.equal(engine.state.busy,false);
+});

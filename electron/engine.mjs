@@ -144,7 +144,7 @@ export class StudioEngine extends EventEmitter {
     this.publish();await this.save();
   }
   async configure({autoFallback,model,activeAccountId,accountId,enabled,theme,effort,projectPhase,provider,routingProfile,providerPreference}) {
-    if(this.state.busy&&((theme===undefined&&projectPhase===undefined)||[autoFallback,model,activeAccountId,accountId,enabled,effort,provider,routingProfile,providerPreference].some(v=>v!==undefined))) throw new Error('Aguarde ou interrompa a execução antes de alterar contas.');
+    if(this.state.busy&&((theme===undefined&&projectPhase===undefined&&routingProfile===undefined)||[autoFallback,model,activeAccountId,accountId,enabled,effort,provider,providerPreference].some(v=>v!==undefined))) throw new Error('Aguarde ou interrompa a execução antes de alterar contas.');
     if(providerPreference!==undefined){const p=providerPreference?.provider,m=providerPreference?.model,e=providerPreference?.effort;if(!['claude','codex','gemini'].includes(p)||typeof m!=='string'||(p==='claude'?!['sonnet','opus','haiku'].includes(m):m!==''&&!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(m))||!['default','low','medium','high','xhigh','max'].includes(e))throw new Error('Preferência de modelo ou esforço inválida.');this.state.providerPreferences??={};this.state.providerPreferences[p]={model:m,effort:e};if(p===this.state.provider){this.state.model=m;this.state.effort=e;}}
     if(routingProfile!==undefined){if(!this.state.project)throw new Error('Conecte um projeto.');const value=validateRouting(routingProfile);this.state.routingProfiles??={};this.state.routingProfiles[this.state.project.path]=value;}
     if(provider!==undefined)this.switchProvider(provider);

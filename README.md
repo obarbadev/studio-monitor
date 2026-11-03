@@ -1,6 +1,6 @@
 # Studio Monitor
 
-[Releases e instaladores](https://github.com/obarbadev/studio-monitor/releases) · [Guia de distribuição](docs/distribution.md) · [Créditos](THIRD_PARTY_NOTICES.md)
+[Releases e instaladores](https://github.com/obarbadev/studio-monitor/releases) · [Changelog](CHANGELOG.md) · [Guia de distribuição](docs/distribution.md) · [Créditos](THIRD_PARTY_NOTICES.md)
 
 Prévia para macOS Apple Silicon/Intel e Windows x64. Os pacotes não são assinados digitalmente. Instale os programas oficiais dos provedores e faça login antes de conectar um projeto. Veja os requisitos e limites de cada plataforma no guia de distribuição.
 

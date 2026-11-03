@@ -217,11 +217,14 @@ try{
  await check("![...document.querySelectorAll('nav button')].some(b=>b.innerText.includes('Contas Claude')) && document.querySelectorAll('.connection-tabs button').length===3",'Connections stayed split across sidebar entries');
  await win.webContents.executeJavaScript("[...document.querySelectorAll('.connection-tabs button')].find(b=>b.innerText==='Fallback e equipe').click()");
  await check("document.querySelectorAll('.routing-order>div').length===3 && document.querySelector('.routing-order').innerText.indexOf('Claude Code')<document.querySelector('.routing-order').innerText.indexOf('Codex')",'Default fallback order missing');
+ state.busy=true;update();
+ await check("!document.querySelector('[aria-label=\"Fallback entre provedores\"]').disabled && !document.querySelector('[aria-label=\"Limite de agentes\"]').disabled && !document.querySelector('[aria-label=\"Modelo de game-designer\"]').disabled && document.body.innerText.includes('próximo envio')",'Routing blocked while principal is busy');
  await win.webContents.executeJavaScript("var roleProvider=document.querySelector('[aria-label=\"Provedor de game-designer\"]');roleProvider.value='codex';roleProvider.dispatchEvent(new Event('change',{bubbles:true}));");
  await check("document.querySelector('[aria-label=\"Provedor de game-designer\"]').value==='codex'",'Role provider routing not saved');
  await win.webContents.executeJavaScript("document.querySelector('[aria-label=\"Subir Codex\"]').click()");
  await check("document.querySelector('.routing-order>div strong').innerText==='Codex'",'Fallback reorder did not save');
  await win.webContents.executeJavaScript("document.querySelector('[aria-label=\"Descer Codex\"]').click()");
+ state.busy=false;update();
  await settled();await writeFile(path.join(os.tmpdir(),'studio-monitor-routing.png'),(await win.webContents.capturePage()).toPNG());
  await win.webContents.executeJavaScript("[...document.querySelectorAll('nav button')].find(b=>b.innerText.includes('Agentes')).click()");
  await win.webContents.executeJavaScript("[...document.querySelectorAll('button')].find(b=>b.innerText.includes('Criar agente')).click()");
