@@ -1,6 +1,7 @@
 const {contextBridge,ipcRenderer}=require('electron');
 const invoke=async(name,...args)=>{const r=await ipcRenderer.invoke(name,...args);if(!r.ok)throw new Error(r.error);return r.value;};
 contextBridge.exposeInMainWorld('studio',{
+ addNativeAccount:input=>invoke('studio:add-native-account',input),editNativeAccount:input=>invoke('studio:edit-native-account',input),removeNativeAccount:id=>invoke('studio:remove-native-account',id),refreshNativeAccount:id=>invoke('studio:refresh-native-account',id),importNativeAccount:provider=>invoke('studio:import-native-account',provider),loginNativeAccount:id=>invoke('studio:login-native-account',id),nativeAccountFallback:input=>invoke('studio:native-account-fallback',input),
  spawnAgent:input=>invoke('studio:spawn-agent',input),stopAgent:id=>invoke('studio:stop-agent',id),
  providers:()=>invoke('studio:providers'),providerLogin:provider=>invoke('studio:provider-login',provider),
  templates:()=>invoke('studio:templates'),previewTemplate:id=>invoke('studio:preview-template',id),installTemplate:token=>invoke('studio:install-template',token),projectSnapshot:()=>invoke('studio:project-snapshot'),projectFile:id=>invoke('studio:project-file',id),previewStatusline:()=>invoke('studio:preview-statusline'),

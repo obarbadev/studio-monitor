@@ -150,3 +150,19 @@ papel em **Conexões → Fallback e equipe**, ou use **Agentes → Criar agente*
 pode delegar e receber resultados por uma ponte MCP local. O fallback entre provedores
 segue inicialmente **Claude → Codex → AGY**, depois das contas Claude disponíveis,
 com contexto parcial de continuidade e identificação explícita do provedor em uso.
+
+## Contas e quotas de todos os provedores
+
+Em **Conexões → Contas**, escolha Claude Code, Codex ou Antigravity (AGY). Cadastre
+perfis, conclua o login oficial e escolha quais podem entrar no fallback. Codex e
+AGY têm painéis próprios com percentuais disponíveis/utilizados e renovação, a
+partir das consultas oficiais. Os dados são atualizados a cada 30 segundos, após
+execuções e por botão; ausência de informação não é convertida em saldo estimado.
+
+Novos perfis Codex usam CODEX_HOME próprio. Novos perfis AGY usam HOME/diretório de
+dados próprios. O Studio não copia tokens entre perfis. Ao trocar conta em uma
+conversa nativa, uma sessão própria recebe o contexto parcial disponível. Remover
+um registro não apaga o login nem seus históricos.
+
+Para a evolução dos templates, veja a [proposta de padrão público](docs/template-standard-proposal.md).
+A importação de pacotes externos e o editor dessa proposta ainda não estão disponíveis.

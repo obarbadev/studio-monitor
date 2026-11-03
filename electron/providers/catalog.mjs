@@ -1,4 +1,4 @@
-import {access,stat,readFile} from 'node:fs/promises';
+import {access,stat} from 'node:fs/promises';
 import {constants} from 'node:fs';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -27,7 +27,7 @@ export async function inspectProvider(provider,{env=process.env,home=os.homedir(
  }
  if(provider==='gemini'){
   // Only inspect cache metadata; AGY owns credentials and validates them at execution.
-  try{const credentials=await stat(path.join(home,'.gemini/antigravity-cli/antigravity-oauth-token'));if(credentials.isFile()&&credentials.size>0)return {...result,loggedIn:true,authState:'cached'};}catch{}
+  try{const credentials=await stat(path.join(env.ANTIGRAVITY_EXECUTABLE_DATA_DIR||path.join(home,'.gemini/antigravity-cli'),'antigravity-oauth-token'));if(credentials.isFile()&&credentials.size>0)return {...result,loggedIn:true,authState:'cached'};}catch{}
   return {...result,error:'Abra o AGY, entre com Google e clique em verificar. O login será validado pelo programa ao executar.'};
  }
  return result;

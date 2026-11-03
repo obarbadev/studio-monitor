@@ -10,7 +10,7 @@ import {SessionBrowser} from './sessions.mjs';
 import {UsageMonitor} from './usage.mjs';
 import {TemplateManager} from './templates.mjs';
 import {ProjectInspector} from './project.mjs';
-import {inspectProvider,loginCommand,findProviderCli} from './providers/catalog.mjs';
+import {inspectProvider,findProviderCli} from './providers/catalog.mjs';
 const here=path.dirname(fileURLToPath(import.meta.url));
 const execute=promisify(execFile);
 let window, engine, sessions, usageMonitor, usageTimer, templates, inspector, cliPath, quitting=false;
@@ -30,7 +30,16 @@ async function refreshAccount(account){
   }catch(e){account.loggedIn=false;account.authError=e.killed?'Verificação de login expirou.':null;}
   engine.publish();await engine.save();return account;
 }
-async function refreshProviders(){const results=await Promise.allSettled(['codex','gemini'].map(p=>inspectProvider(p)));for(let i=0;i<results.length;i++){const provider=['codex','gemini'][i],result=results[i];engine.state.providers[provider]=result.status==='fulfilled'?result.value:{id:provider,name:provider,available:false,loggedIn:false,authState:'missing',error:result.reason.message};}engine.state.providers.claude={id:'claude',name:'Claude Code',available:!!cliPath,loggedIn:engine.state.accounts.some(a=>a.loggedIn)};engine.publish();return engine.state.providers;}
+async function refreshProviders(){const results=await Promise.allSettled(['codex','gemini'].map(p=>inspectProvider(p)));for(let i=0;i<results.length;i++){const provider=['codex','gemini'][i],result=results[i];engine.state.providers[provider]=result.status==='fulfilled'?result.value:{id:provider,name:provider,available:false,loggedIn:false,authState:'missing',error:result.reason.message};if(!engine.state.nativeProfilesInitialized?.includes(provider)&&result.value?.available){const a=await engine.nativeAccounts.local(provider);a.loggedIn=result.value.loggedIn;engine.state.nativeProfilesInitialized??=[];engine.state.nativeProfilesInitialized.push(provider);}engine.nativeAccounts.sync(provider);}engine.state.providers.claude={id:'claude',name:'Claude Code',available:!!cliPath,loggedIn:engine.state.accounts.some(a=>a.loggedIn)};engine.publish();await engine.save();return engine.state.providers;}
+
+async function launchNativeLogin(id){
+ const {command}=await engine.nativeAccounts.login(id);
+ if(process.platform==='darwin')await execute('/usr/bin/osascript',['-e',`tell application "Terminal"\nactivate\ndo script ${JSON.stringify(command)}\nend tell`],{timeout:15000,maxBuffer:65536});
+ else if(process.platform==='win32'){const child=spawn('powershell.exe',['-NoLogo','-NoProfile','-NoExit','-Command',command],{detached:true,stdio:'ignore',windowsHide:false});await new Promise((resolve,reject)=>{child.once('spawn',resolve);child.once('error',reject);});child.unref();}
+ else throw new Error(`Faça login no perfil pelo terminal: ${command}. Depois clique em verificar.`);
+ return {command};
+}
+
 function getAccount(id){const a=engine.state.accounts.find(a=>a.id===id);if(!a)throw new Error('Conta não encontrada.');return a;}
 app.setName('Studio Monitor');
 app.whenReady().then(async()=>{
@@ -107,20 +116,25 @@ app.whenReady().then(async()=>{
   });
   register('studio:cancel-login',id=>{logins.get(id)?.kill();});
   register('studio:providers',()=>refreshProviders());
+  register('studio:add-native-account',input=>engine.nativeAccounts.add(input));
+  register('studio:edit-native-account',input=>engine.nativeAccounts.edit(input));
+  register('studio:remove-native-account',id=>engine.nativeAccounts.remove(id));
+  register('studio:refresh-native-account',id=>engine.nativeAccounts.refresh(id));
+  register('studio:import-native-account',async provider=>{engine.nativeAccounts.guard();const a=await engine.nativeAccounts.local(provider);engine.state.nativeProfilesInitialized??=[];if(!engine.state.nativeProfilesInitialized.includes(provider))engine.state.nativeProfilesInitialized.push(provider);await engine.nativeAccounts.refresh(a.id).catch(()=>{});return a;});
+  register('studio:native-account-fallback',async input=>{if(!['codex','gemini'].includes(input.provider)||typeof input.enabled!=='boolean')throw new Error('Configuração inválida.');engine.state.nativeAutoFallback??={};engine.state.nativeAutoFallback[input.provider]=input.enabled;engine.publish();await engine.save();});
+  register('studio:login-native-account',id=>launchNativeLogin(id));
+
   register('studio:provider-login',async provider=>{
     if(engine.state.busy||engine.team.running)throw new Error('Aguarde ou interrompa a equipe antes de mudar o login.');
     if(!['codex','gemini'].includes(provider))throw new Error('Executor inválido.');
-    const status=await inspectProvider(provider);if(!status.available)throw new Error(status.error);
-    const command=loginCommand(provider,status.binary);
-    if(process.platform!=='darwin')throw new Error(`Abra seu terminal e execute: ${command}. Depois clique em verificar conexão.`);
-    await execute('/usr/bin/osascript',['-e',`tell application "Terminal"\nactivate\ndo script ${JSON.stringify(command)}\nend tell`],{timeout:15000,maxBuffer:65536});
-    return {command};
+    const account=(engine.state.nativeAccounts||[]).find(a=>a.id===engine.state.selectedNativeAccounts?.[provider])||engine.nativeAccounts.selected(provider)||await engine.nativeAccounts.local(provider);
+    return launchNativeLogin(account.id);
   });
   register('studio:docs',()=>shell.openExternal('https://github.com/Donchitos/Claude-Code-Game-Studios'));
   register('studio:usage-page',()=>shell.openExternal('https://claude.ai/settings/usage'));
   if(process.argv.includes('--dev'))await window.loadURL('http://127.0.0.1:5173');else await window.loadFile(path.join(here,'../dist/index.html'));
   engine.on('usage-refresh',id=>{void usageMonitor.refresh(id,{force:false}).catch(()=>{});});
-  void usageMonitor.refreshAll();usageTimer=setInterval(()=>{void usageMonitor.refreshAll();},30000);usageTimer.unref?.();
+  void usageMonitor.refreshAll();void engine.nativeAccounts.refreshAll();engine.on('native-usage-refresh',provider=>{void engine.nativeAccounts.refreshAll({provider,force:true});});usageTimer=setInterval(()=>{void usageMonitor.refreshAll();void engine.nativeAccounts.refreshAll();},30000);usageTimer.unref?.();
   window.on('focus',()=>{void refreshProviders().catch(()=>{});});
   window.on('close',event=>{
     if((engine.state.busy||engine.team.running)&&!quitting){event.preventDefault();const choice=dialog.showMessageBoxSync(window,{type:'question',message:'Interromper os agentes e fechar?',buttons:['Continuar trabalhando','Interromper e fechar'],defaultId:0,cancelId:0});if(choice===1){quitting=true;engine.stop();setTimeout(()=>window.close(),500);}}

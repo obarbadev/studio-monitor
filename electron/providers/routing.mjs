@@ -1,7 +1,8 @@
+import {availableNativeAccounts} from './accounts.mjs';
 import {PROVIDERS} from './catalog.mjs';
 export const PROVIDER_ORDER=['claude','codex','gemini'];
 export function routingProfile(state){return {enabled:true,order:state.project?.template?.execution?.fallbackOrder||PROVIDER_ORDER,maxAgents:state.project?.template?.execution?.maxParallelAgents||3,agents:{},...(state.routingProfiles?.[state.project?.path]||{})};}
-export function providerReady(state,provider){if(provider==='claude')return state.providers?.claude?.available!==false&&state.accounts.some(a=>a.enabled&&a.loggedIn&&(!a.cooldownUntil||a.cooldownUntil<=Date.now()));const s=state.providers?.[provider];return !!(s?.available&&s.loggedIn&&s.binary);}
+export function providerReady(state,provider){if(provider==='claude')return state.providers?.claude?.available!==false&&state.accounts.some(a=>a.enabled&&a.loggedIn&&(!a.cooldownUntil||a.cooldownUntil<=Date.now()));const s=state.providers?.[provider];return !!(s?.available&&s.binary&&(state.nativeProfilesInitialized?.includes(provider)?availableNativeAccounts(state,provider).length:s.loggedIn));}
 export function limitFailure(message){return /(?:\brate[_ -]?limit(?:[_ -]?(?:exceeded|reached))?\b|usage[_ -]?limit|insufficient[_ -]?quota|resource_exhausted|quota[_ -]?(?:exceeded|exhausted)|usage_limit_reached|out of extra usage|\bHTTP\s*429\b|\b429\s+Too Many Requests\b|exhausted.{0,30}(?:capacity|quota))/i.test(String(message||''));}
 export function validateRouting(value){
  if(!value||typeof value!=='object'||typeof value.enabled!=='boolean'||!Array.isArray(value.order)||value.order.length!==3||new Set(value.order).size!==3||value.order.some(p=>!PROVIDER_ORDER.includes(p)))throw new Error('Defina os três provedores em uma ordem válida.');

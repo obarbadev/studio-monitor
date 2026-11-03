@@ -10,7 +10,7 @@ const templateCatalog=await new TemplateManager(path.join(root,'templates')).lis
 let win;let fixtureTelemetry=true;const sentCommands=[];const providerLogins=[];const agentRequests=[];
 const state={provider:'claude',providers:{claude:{id:'claude',name:'Claude Code',available:true,loggedIn:true,authState:'verified'},codex:{id:'codex',name:'Codex',available:true,loggedIn:true,authState:'verified'},gemini:{id:'gemini',name:'Antigravity (AGY)',available:true,loggedIn:true,authState:'cached'}},project:null,accounts:[],activeAccountId:null,autoFallback:true,model:'sonnet',messages:[],agents:[],events:[],busy:false,sessionId:null,tokens:0,permission:null,cliAvailable:true};
 const update=()=>win.webContents.send('studio:state',state);
-for(const name of ['spawn-agent','stop-agent','providers','provider-login','get','templates','preview-template','install-template','project-snapshot','project-file','preview-statusline','inventory','resource','project','send','stop','new','configure','permission','add-account','import-account','check-account','edit-account','remove-account','refresh-usage','open-link','login','cancel-login','sessions','watch-session','take-over','docs','usage-page'])ipcMain.handle(`studio:${name}`,(_event,...args)=>{
+for(const name of ['add-native-account','edit-native-account','remove-native-account','refresh-native-account','import-native-account','login-native-account','native-account-fallback','spawn-agent','stop-agent','providers','provider-login','get','templates','preview-template','install-template','project-snapshot','project-file','preview-statusline','inventory','resource','project','send','stop','new','configure','permission','add-account','import-account','check-account','edit-account','remove-account','refresh-usage','open-link','login','cancel-login','sessions','watch-session','take-over','docs','usage-page'])ipcMain.handle(`studio:${name}`,(_event,...args)=>{
  if(name==='providers')return {ok:true,value:state.providers};
  if(name==='provider-login'){providerLogins.push(args[0]);return {ok:true,value:{command:args[0]}};}
  if(name==='templates')return {ok:true,value:templateCatalog};
@@ -27,6 +27,12 @@ for(const name of ['spawn-agent','stop-agent','providers','provider-login','get'
  if(name==='spawn-agent'){const input=args[0];agentRequests.push(input);const a={id:'mixed-agent-fixture',name:input.role,provider:input.provider||'codex',model:input.model||'default',status:'running',startedAt:Date.now(),managed:true,brief:input.task,instructions:'Instruções da tarefa delegada',declaredSkills:['brainstorm']};state.agents.push(a);update();return {ok:true,value:{id:a.id}};}
  if(name==='stop-agent'){const a=state.agents.find(a=>a.id===args[0]);a.status='interrupted';a.finishedAt=Date.now();update();return {ok:true};}
  if(name==='stop'){state.stopping=true;update();return {ok:true};}
+ if(name==='add-native-account'){const a={id:'native-new-'+Date.now(),provider:args[0].provider,name:args[0].name,enabled:true,managed:true,loggedIn:false};state.nativeAccounts.push(a);update();return {ok:true,value:a};}
+ if(name==='login-native-account'){providerLogins.push(args[0]);return {ok:true,value:{command:'official login'}};}
+ if(name==='refresh-native-account'){const a=state.nativeAccounts.find(a=>a.id===args[0]);a.loggedIn=true;a.usage={source:'Official CLI',updatedAt:Date.now(),windows:[{id:'primary',label:'Codex',windowMinutes:300,utilization:25,remaining:75,resetsAt:new Date(Date.now()+3600000).toISOString()}]};update();return {ok:true,value:a};}
+ if(name==='edit-native-account'){const a=state.nativeAccounts.find(a=>a.id===args[0].id);const {active,...fields}=args[0];Object.assign(a,fields);if(active)state.selectedNativeAccounts[a.provider]=a.id;update();return {ok:true,value:a};}
+ if(name==='remove-native-account'){state.nativeAccounts=state.nativeAccounts.filter(a=>a.id!==args[0]);update();return {ok:true};}
+ if(name==='native-account-fallback'){state.nativeAutoFallback??={};state.nativeAutoFallback[args[0].provider]=args[0].enabled;update();return {ok:true};}
  if(name==='send'){sentCommands.push(args[0]);return {ok:true};}
  if(name==='get')return {ok:true,value:state};
  if(name==='sessions')return {ok:true,value:[{key:'fixture',sessionId:'fixture-session',title:'Sessão de teste',cwd:'/tmp/game',lastModified:Date.now(),accountName:'Perfil de teste'}]};
@@ -214,6 +220,28 @@ try{
  await check("document.querySelector('[aria-label=\"Executor do agente\"]').value==='gemini' && !document.querySelector('[aria-label=\"Esforço de raciocínio\"]').disabled",'Gemini composer effort capability missing');
  await check("document.querySelector('.native-usage')?.innerText.includes('Antigravity (AGY)')",'Gemini measured usage missing');
  await win.webContents.executeJavaScript("[...document.querySelectorAll('nav button')].find(b=>b.innerText==='Conexões').click()");
+ state.nativeAccounts=[{id:'native-codex',provider:'codex',name:'Codex pessoal',managed:false,enabled:true,loggedIn:true,usage:{source:'Codex account/rateLimits/read',updatedAt:Date.now(),windows:[{id:'primary',label:'Codex',windowMinutes:300,utilization:25,remaining:75,resetsAt:new Date(Date.now()+3600000).toISOString()}]}},{id:'native-agy',provider:'gemini',name:'AGY pessoal',managed:false,enabled:true,loggedIn:true,usage:{source:'AGY /usage',updatedAt:Date.now(),windows:[{id:'weekly',label:'Gemini Models',windowMinutes:10080,utilization:15,remaining:85,resetsAt:new Date(Date.now()+3600000).toISOString()}]}}];state.selectedNativeAccounts={codex:'native-codex',gemini:'native-agy'};update();
+ await win.webContents.executeJavaScript("[...document.querySelectorAll('.connection-tabs button')].find(b=>b.innerText==='Contas').click()");
+ await win.webContents.executeJavaScript("[...document.querySelectorAll('.account-provider-tabs button')].find(b=>b.innerText==='Codex').click()");
+ await check("document.querySelector('.native-account-card')?.innerText.includes('75% disponível') && document.body.innerText.includes('Renova')",'Codex account limits or reset missing');
+ await win.webContents.executeJavaScript("document.querySelector('.native-accounts .library-intro .button.primary').click()");
+ await win.webContents.executeJavaScript("var n=document.querySelector('[aria-label=\"Nome da nova conta Codex\"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'Codex trabalho');n.dispatchEvent(new Event('input',{bubbles:true}));");
+ await win.webContents.executeJavaScript("document.querySelector('.native-add-account').requestSubmit()");
+ await check("document.querySelectorAll('.native-account-card').length===2",'Native account addition failed');
+ const newNative=state.nativeAccounts.find(a=>a.name==='Codex trabalho');if(providerLogins.at(-1)!==newNative.id)throw new Error('Login not scoped to new native account');
+ await win.webContents.executeJavaScript("[...document.querySelectorAll('.native-account-card')].find(c=>c.innerText.includes('Codex trabalho')).querySelector('.button.secondary').click()");
+ await check("[...document.querySelectorAll('.native-account-card')].find(c=>c.innerText.includes('Codex trabalho')).innerText.includes('75% disponível')",'Native account refresh failed');
+ await win.webContents.executeJavaScript("[...document.querySelectorAll('.native-account-card')].find(c=>c.innerText.includes('Codex trabalho')).querySelector('.button.primary').click()");
+ if(state.selectedNativeAccounts.codex!==newNative.id)throw new Error('Native account selection failed');
+ await win.webContents.executeJavaScript("document.querySelector('[aria-label=\"Editar conta Codex trabalho\"]').click()");
+ await win.webContents.executeJavaScript("var n=document.querySelector('[aria-label=\"Novo nome da conta\"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'Codex equipe');n.dispatchEvent(new Event('input',{bubbles:true}));");
+ await win.webContents.executeJavaScript("document.querySelector('[aria-label=\"Novo nome da conta\"]').form.requestSubmit()");
+ await check("!!document.querySelector('[aria-label=\"Remover conta Codex equipe\"]')",'Native account rename failed');
+ await win.webContents.executeJavaScript("document.querySelector('[aria-label=\"Remover conta Codex equipe\"]').click()");
+ await check("document.querySelectorAll('.native-account-card').length===1",'Native account removal failed');
+ await win.webContents.executeJavaScript("[...document.querySelectorAll('.account-provider-tabs button')].find(b=>b.innerText==='Antigravity (AGY)').click()");
+ await check("document.querySelector('.native-account-card')?.innerText.includes('85% disponível') && document.querySelector('.native-account-card')?.innerText.includes('Semanal')",'AGY account limits missing');
+ await settled();await writeFile(path.join(os.tmpdir(),'studio-monitor-native-accounts.png'),(await win.webContents.capturePage()).toPNG());
  await check("![...document.querySelectorAll('nav button')].some(b=>b.innerText.includes('Contas Claude')) && document.querySelectorAll('.connection-tabs button').length===3",'Connections stayed split across sidebar entries');
  await win.webContents.executeJavaScript("[...document.querySelectorAll('.connection-tabs button')].find(b=>b.innerText==='Fallback e equipe').click()");
  await check("document.querySelectorAll('.routing-order>div').length===3 && document.querySelector('.routing-order').innerText.indexOf('Claude Code')<document.querySelector('.routing-order').innerText.indexOf('Codex')",'Default fallback order missing');
@@ -242,7 +270,7 @@ try{
  await check("!document.querySelector('.agent-inspector')?.innerText.includes('Interromper esta tarefa')",'Managed task did not stop');
  await win.webContents.executeJavaScript("document.querySelector('[aria-label=\"Fechar detalhes\"]').click()");
  if(failures.length)throw new Error(failures.join('\n'));
- console.log('Electron UI smoke passed: canvas, session monitoring, Markdown, both themes, edit/remove accounts, usage refresh/countdown, chat, studio library, agent instructions/skills, templates/review, project overview, effort, slash command completion/submission skill origin groups/filters, provider connections/login, Codex chat, Gemini controls, unified connections, role routing and mixed-provider task creation/stop; no renderer errors.');
+ console.log('Electron UI smoke passed: canvas, session monitoring, Markdown, both themes, edit/remove accounts, usage refresh/countdown, chat, studio library, agent instructions/skills, templates/review, project overview, effort, slash command completion/submission skill origin groups/filters, provider connections/login, Codex chat, AGY controls, native account creation/login/limits/selection/edit/remove, unified connections, role routing and mixed-provider task creation/stop; no renderer errors.');
  console.log('Screenshot: /tmp/studio-monitor-overview.png');
  win.destroy();await rm(temporary,{recursive:true,force:true});app.exit(0);
 }catch(error){console.error(error,failures);if(win)console.error(await win.webContents.executeJavaScript('document.body.innerText.slice(-4500)'));win?.destroy();app.exit(1);}

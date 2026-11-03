@@ -1,3 +1,4 @@
+import {NativeAccounts} from './providers/accounts.mjs';
 import {sendRouted,validateRouting,limitFailure} from './providers/routing.mjs';
 import {StudioTeam} from './providers/team.mjs';
 import {TeamBridge,teamInstructions} from './providers/team-bridge.mjs';
@@ -54,8 +55,8 @@ export async function transferSession(from, to, sessionId) {
 export class StudioEngine extends EventEmitter {
   constructor({ directory, query, cliPath, env = process.env, nativeRunner=nativeProcess, prepareNative=prepareProviderProject, enableTeamBridge=false,telemetryProjectStatus=true }) {
     super();this.enableTeamBridge=enableTeamBridge;this.team=new StudioTeam(this);this.teamBridge=null;this.routed=false;this.nativeRunner=nativeRunner;this.prepareNative=prepareNative; this.directory=directory; this.query=query; this.cliPath=cliPath; this.baseEnv=env;
-    this.state={routingProfiles:{},activeProvider:null,provider:'claude',providers:{},providerPreferences:{claude:{model:'sonnet',effort:'default'},codex:{model:'',effort:'default'},gemini:{model:'',effort:'default'}},conversations:{}, project:null, accounts:[], activeAccountId:null, autoFallback:true, model:'sonnet', effort:'default', theme:'light', messages:[], agents:[], events:[], busy:false, sessionId:null, sessionAccountId:null, tokens:0, permission:null };
-    this.inventory=new StudioInventory();this.telemetry=new StudioTelemetry(e=>this.event(`Não foi possível atualizar a telemetria do Studio: ${e.message}`,'warning'),{projectStatus:telemetryProjectStatus});
+    this.state={nativeAccounts:[],selectedNativeAccounts:{},nativeAutoFallback:{codex:true,gemini:true},nativeProfilesInitialized:[],routingProfiles:{},activeProvider:null,provider:'claude',providers:{},providerPreferences:{claude:{model:'sonnet',effort:'default'},codex:{model:'',effort:'default'},gemini:{model:'',effort:'default'}},conversations:{}, project:null, accounts:[], activeAccountId:null, autoFallback:true, model:'sonnet', effort:'default', theme:'light', messages:[], agents:[], events:[], busy:false, sessionId:null, sessionAccountId:null, tokens:0, permission:null };
+    this.nativeAccounts=new NativeAccounts(this);this.inventory=new StudioInventory();this.telemetry=new StudioTelemetry(e=>this.event(`Não foi possível atualizar a telemetria do Studio: ${e.message}`,'warning'),{projectStatus:telemetryProjectStatus});
     this.pending = null; this.current = null; this.controller=null;
   }
   async load() {
@@ -65,6 +66,7 @@ export class StudioEngine extends EventEmitter {
     if(this.state.externalSession){Object.assign(this.state,{sessionId:null,sessionAccountId:null,messages:[],agents:[]});}
     this.state.externalSession=null;this.state.sessionProvider=this.state.sessionId?(this.state.sessionProvider||this.state.provider):null;
     if(this.state.runStatus==='running')this.state.runStatus='interrupted';this.state.mainTool=null;
+    (this.state.nativeAccounts||[]).forEach(a=>a.usageLoading=false);
     this.state.accounts.forEach(a=>{a.loggingIn=false;a.usageLoading=false;});
     if(this.state.project){Object.assign(this.state.project,await projectMetadata(this.state.project.path));try{await ensureStudioStatusline(this.state.project.path);}catch(e){this.state.events.push({id:randomUUID(),kind:'warning',text:`Statusline do Studio: ${e.message}`,time:Date.now()});}}
     this.state.agents=this.state.agents.map(a=>a.status==='running'?{...a,status:'interrupted',finishedAt:Date.now()-10000}:a);
@@ -88,7 +90,7 @@ export class StudioEngine extends EventEmitter {
   }
   event(text,kind='info') { this.state.events.push({id:randomUUID(),text,kind,time:Date.now()}); this.state.events=this.state.events.slice(-300); this.publish(); }
   conversationKey(){return this.state.project?this.state.project.path+'|'+this.state.provider:null;}
-  archiveConversation(){const key=this.conversationKey();if(!key)return;this.state.conversations??={};const fields=['messages','agents','events','sessionId','sessionAccountId','sessionConfigDir','tokens','runtimeCatalog','skillUses','instructionsLoaded','sessionMetrics','sessionProvider','nativeContextHash','activeProvider','sessionRuntime','legacyNativeSessions'];this.state.conversations[key]=structuredClone(Object.fromEntries(fields.map(k=>[k,this.state[k]??null])));}
+  archiveConversation(){const key=this.conversationKey();if(!key)return;this.state.conversations??={};const fields=['messages','agents','events','sessionId','sessionAccountId','sessionConfigDir','tokens','runtimeCatalog','skillUses','instructionsLoaded','sessionMetrics','sessionProvider','nativeContextHash','nativeSessionAccountId','activeProvider','sessionRuntime','legacyNativeSessions'];this.state.conversations[key]=structuredClone(Object.fromEntries(fields.map(k=>[k,this.state[k]??null])));}
   restoreConversation(){const saved=this.state.conversations?.[this.conversationKey()];if(saved)Object.assign(this.state,structuredClone(saved));}
   switchProvider(provider){
     if(!['claude','codex','gemini'].includes(provider))throw new Error('Executor inválido.');if(provider===this.state.provider)return;
@@ -96,7 +98,7 @@ export class StudioEngine extends EventEmitter {
     if(this.state.externalSession)throw new Error('Crie uma nova conversa antes de trocar o executor de uma sessão em acompanhamento.');
     this.archiveConversation();this.state.providerPreferences??={};this.state.providerPreferences[this.state.provider]={model:this.state.model,effort:this.state.effort||'default'};
     this.state.provider=provider;const preference=this.state.providerPreferences[provider]||{model:provider==='claude'?'sonnet':'',effort:'default'};
-    Object.assign(this.state,{...preference,activeProvider:null,messages:[],agents:[],events:[],sessionId:null,sessionProvider:null,sessionRuntime:null,sessionAccountId:null,sessionConfigDir:null,tokens:0,runtimeCatalog:null,skillUses:[],instructionsLoaded:[],sessionMetrics:null,runStatus:'idle',mainTool:null,nativeContextHash:null});this.restoreConversation();
+    Object.assign(this.state,{...preference,activeProvider:null,messages:[],agents:[],events:[],sessionId:null,sessionProvider:null,nativeSessionAccountId:null,sessionRuntime:null,sessionAccountId:null,sessionConfigDir:null,tokens:0,runtimeCatalog:null,skillUses:[],instructionsLoaded:[],sessionMetrics:null,runStatus:'idle',mainTool:null,nativeContextHash:null});this.restoreConversation();
   }
   async connect(projectPath, allowGeneric=true) {
     if(this.state.busy||this.team.running) throw new Error('Interrompa a equipe antes de trocar de projeto.');
@@ -110,7 +112,7 @@ export class StudioEngine extends EventEmitter {
     try{await readFile(path.join(root,'CLAUDE.md'));}catch(e){if(!allowGeneric)throw e;}
     const metadata=await projectMetadata(root);
     const changed=root!==this.state.project?.path;if(changed)this.archiveConversation();
-    if(changed) Object.assign(this.state,{activeProvider:null,externalSession:null,messages:[],agents:[],events:[],sessionId:null,sessionProvider:null,sessionRuntime:null,nativeContextHash:null,sessionAccountId:null,sessionConfigDir:null,tokens:0,runStatus:'idle',mainTool:null,runtimeCatalog:null,skillUses:[],instructionsLoaded:[],sessionMetrics:null});
+    if(changed) Object.assign(this.state,{activeProvider:null,externalSession:null,messages:[],agents:[],events:[],sessionId:null,sessionProvider:null,nativeSessionAccountId:null,sessionRuntime:null,nativeContextHash:null,sessionAccountId:null,sessionConfigDir:null,tokens:0,runStatus:'idle',mainTool:null,runtimeCatalog:null,skillUses:[],instructionsLoaded:[],sessionMetrics:null});
     this.state.project={path:root,name:path.basename(root),definitions,...metadata};if(changed)this.restoreConversation();
     try{await ensureStudioStatusline(root);}catch(e){this.event(`Statusline do Studio: ${e.message}`,'warning');}
     this.event('Projeto conectado. Configurações, skills e hooks originais serão carregados.'); await this.save();
@@ -144,7 +146,7 @@ export class StudioEngine extends EventEmitter {
     this.publish();await this.save();
   }
   async configure({autoFallback,model,activeAccountId,accountId,enabled,theme,effort,projectPhase,provider,routingProfile,providerPreference}) {
-    if(this.state.busy&&((theme===undefined&&projectPhase===undefined&&routingProfile===undefined)||[autoFallback,model,activeAccountId,accountId,enabled,effort,provider,providerPreference].some(v=>v!==undefined))) throw new Error('Aguarde ou interrompa a execução antes de alterar contas.');
+    if(this.state.busy&&((theme===undefined&&projectPhase===undefined&&routingProfile===undefined&&autoFallback===undefined)||[model,activeAccountId,accountId,enabled,effort,provider,providerPreference].some(v=>v!==undefined))) throw new Error('Aguarde ou interrompa a execução antes de alterar contas.');
     if(providerPreference!==undefined){const p=providerPreference?.provider,m=providerPreference?.model,e=providerPreference?.effort;if(!['claude','codex','gemini'].includes(p)||typeof m!=='string'||(p==='claude'?!['sonnet','opus','haiku'].includes(m):m!==''&&!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/.test(m))||!['default','low','medium','high','xhigh','max'].includes(e))throw new Error('Preferência de modelo ou esforço inválida.');this.state.providerPreferences??={};this.state.providerPreferences[p]={model:m,effort:e};if(p===this.state.provider){this.state.model=m;this.state.effort=e;}}
     if(routingProfile!==undefined){if(!this.state.project)throw new Error('Conecte um projeto.');const value=validateRouting(routingProfile);this.state.routingProfiles??={};this.state.routingProfiles[this.state.project.path]=value;}
     if(provider!==undefined)this.switchProvider(provider);
@@ -184,7 +186,7 @@ export class StudioEngine extends EventEmitter {
   stop() { if(this.state.stopping)return;if(this.state.busy||this.team.running){this.state.stopping=true;this.event('Interrompendo a execução. Aguardando o encerramento dos processos.');}if(this.pending){this.pending.resolve({behavior:'deny',message:'Execução interrompida pelo usuário.'});this.pending=null;this.state.permission=null;}this.routeController?.abort();this.team.stopAll();this.controller?.abort(); if(this.current) {try{this.current.close();}catch{}} }
   async newSession() {
     if(this.state.busy||this.team.running)throw new Error('Interrompa a equipe antes de criar outra sessão.');
-    Object.assign(this.state,{activeProvider:null,externalSession:null,messages:[],agents:[],sessionId:null,sessionProvider:null,sessionRuntime:null,nativeContextHash:null,sessionAccountId:null,sessionConfigDir:null,tokens:0,runStatus:'idle',mainTool:null,runtimeCatalog:null,skillUses:[],instructionsLoaded:[],sessionMetrics:null});this.event('Nova conversa iniciada.');this.archiveConversation();await this.save();
+    Object.assign(this.state,{activeProvider:null,externalSession:null,messages:[],agents:[],sessionId:null,sessionProvider:null,nativeSessionAccountId:null,sessionRuntime:null,nativeContextHash:null,sessionAccountId:null,sessionConfigDir:null,tokens:0,runStatus:'idle',mainTool:null,runtimeCatalog:null,skillUses:[],instructionsLoaded:[],sessionMetrics:null});this.event('Nova conversa iniciada.');this.archiveConversation();await this.save();
   }
   async send(text){return sendRouted(this,text);}
   async sendDirect(text,{continuation=false,routed=false}={}) {
@@ -198,7 +200,7 @@ export class StudioEngine extends EventEmitter {
     if(!account)throw new Error('Conecte uma conta disponível na aba Contas Claude.');
     if(!continuation)this.state.messages.push({id:randomUUID(),role:'user',text:text.trim(),time:Date.now()});
     this.state.runStatus='running';this.state.mainTool=null;this.state.busy=true;this.controller=new AbortController();this.publish();
-    const tried=new Set();let prompt=text.trim();let slashRecorded=false;if(/^\//.test(prompt))this.event(`Executando comando ${prompt.split(/\s/)[0]}.`);
+    const accountFallback=this.state.autoFallback;const tried=new Set();let prompt=text.trim();let slashRecorded=false;if(/^\//.test(prompt))this.event(`Executando comando ${prompt.split(/\s/)[0]}.`);
     try {
       while(account) {
         tried.add(account.id);
@@ -273,7 +275,7 @@ export class StudioEngine extends EventEmitter {
         if(!limited)break;
         account.cooldownUntil=limitReset?limitReset*1000:Date.now()+5*60*1000;
         this.event(`${account.name} atingiu o limite. ${limitReset?'Aguardando a renovação da janela.':'Nova tentativa disponível em 5 minutos.'}`,'warning');
-        const next=this.state.autoFallback?availableAccount(this.state.accounts,tried):null;
+        const next=accountFallback?availableAccount(this.state.accounts,tried):null;
         if(!next){this.state.runStatus='limited';this.event('Execução pausada: nenhuma outra conta disponível.','warning');break;}
         this.state.agents.forEach(a=>{if(a.status==='running'&&!a.managed&&!a.ownerJob){a.status='interrupted';a.finishedAt=Date.now();}});
         this.event(`Fallback automático: ${account.name} → ${next.name}. Preparando retomada da sessão.`,'fallback');

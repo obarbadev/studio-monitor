@@ -75,10 +75,10 @@ Referências oficiais: [Codex não interativo](https://developers.openai.com/cod
 
 ## Equipe com provedores mistos
 
-Em **Conexões**, as abas **Provedores**, **Contas do Claude** e **Fallback e equipe**
+Em **Conexões**, as abas **Provedores**, **Contas** e **Fallback e equipe**
 reúnem a configuração que antes ficava em dois menus. Um provedor é o programa usado
 para executar; as contas são os logins usados por essa conexão. O Studio continua com
-múltiplas contas Claude e usa os logins locais dos outros programas.
+múltiplas contas Claude, Codex e AGY com os logins dos programas oficiais.
 
 A ordem de fallback vale por projeto e só percorre conexões disponíveis. O Claude tenta
 primeiro as outras contas habilitadas, quando o fallback de contas está ativo. Limites de
@@ -131,3 +131,33 @@ IDs antigos do Gemini CLI são arquivados em `legacyNativeSessions`, sem enviá-
 O menu de slash commands fica visível acima do campo, lista todas as skills indexadas e atualiza o índice enquanto aberto. Falhas de listagem aparecem no chat. No Claude, saídas `local_command_output` e avisos `informational` são renderizados no histórico. `/architecture-review` foi encontrado no índice real do projeto; envio e visibilidade foram exercitados com execução simulada, sem rodar a revisão real.
 
 Ao clicar em parar, o botão passa imediatamente para **Interrompendo…** e fica desabilitado. O estado só termina após encerrar o envio e os processos; a solicitação de cancelamento também alcança tarefas Studio e perguntas pendentes.
+
+## Contas nativas e limites — 0.2.0
+
+A antiga limitação de uma única conta Codex/AGY foi substituída por perfis em
+Conexões → Contas. Novos perfis Codex recebem CODEX_HOME próprio com
+cli_auth_credentials_store=file. Novos perfis AGY recebem HOME/USERPROFILE e
+ANTIGRAVITY_EXECUTABLE_DATA_DIR próprios. O login oficial cria suas credenciais;
+o Studio só guarda o registro do perfil e os dados de uso permitidos na interface.
+
+Codex é consultado via app-server, com initialize, initialized, account/read e
+account/rateLimits/read, sem abrir thread ou enviar prompt. AGY é consultado com
+`agy -p /usage --output-format json`; a resposta deve ser um comando nativo de uso,
+SUCCESS e num_turns=0. São lidos grupos/buckets e remaining_fraction/reset_time.
+Saldo, renovação e janelas são exibidos apenas conforme retornados. Os totais de
+tokens de execuções permanecem separados da cota de assinatura.
+
+O login por Terminal é assistido no macOS. No Windows, o Studio abre PowerShell
+com o perfil correspondente; em Linux, informa o comando de terminal. O usuário
+conclui o login no programa oficial e clica em verificar. Há atualização periódica
+e após execuções, com deduplicação e preservação da última leitura em falhas.
+
+No limite, o Studio tenta outra conta habilitada do mesmo provedor antes do
+fallback entre provedores. A troca não reutiliza IDs de outro perfil: inicia nova
+sessão com contexto parcial e mantém uma só solicitação visível. Codex usa espera
+por conta; AGY mantém espera pelo modelo que atingiu o limite, pois há grupos
+independentes de quota. Não existe promessa de execução exatamente uma vez.
+
+Validação: quotas reais de Codex/AGY, perfil vazio AGY sem autenticação e testes
+simulados de rotação, isolamento e UI. O cadastramento de uma segunda identidade
+real requer login do usuário; não foi feito login em nome dele durante os testes.

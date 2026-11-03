@@ -1,8 +1,32 @@
 # Changelog
 
-As mudanças do Studio Monitor são registradas por versão. Os pacotes 0.1.x são
+As mudanças do Studio Monitor são registradas por versão. As versões 0.x publicadas até aqui são
 prévias: não têm assinatura de publicador e ainda precisam de validação de uso
 real em Windows e macOS Intel. As notas de cada release detalham esses limites.
+
+## [0.2.0] — 2026-11-03
+
+### Adicionado
+
+- Contas Codex e AGY em Conexões → Contas, com criação de perfis, login oficial,
+  seleção, edição de nome, habilitação no fallback e remoção de registros.
+- Limites de Codex pela consulta oficial account/rateLimits/read e limites AGY pelo
+  comando nativo /usage: disponível, utilizado e renovação de cada janela/grupo.
+- Atualização automática a cada 30 segundos, após execuções e por botão; contagem
+  regressiva e identificação da origem e idade da leitura.
+- Perfis Codex com CODEX_HOME próprio e armazenamento de login em arquivo; perfis
+  AGY com HOME/dados próprios. As credenciais são criadas pelos programas oficiais.
+- Fallback entre contas do mesmo provedor antes de avançar na ordem de provedores.
+  A troca abre sessão própria e transfere contexto parcial, preservando o histórico
+  visível. No AGY, a espera por limite é associada ao modelo solicitado.
+- Proposta documentada de padrão público de templates e importação por pasta/ZIP.
+  O editor e o importador externo da proposta ainda não foram implementados.
+
+### Corrigido
+
+- Aba Contas e atalho lateral passam a atender os três provedores.
+- A interface mostra a versão real do aplicativo.
+- Remover/desabilitar uma conta atualiza a seleção sem apagar o login do perfil.
 
 ## [0.1.3] — 2026-11-03
 
@@ -49,3 +73,5 @@ real em Windows e macOS Intel. As notas de cada release detalham esses limites.
 [0.1.2]: https://github.com/obarbadev/studio-monitor/releases/tag/v0.1.2
 [0.1.1]: https://github.com/obarbadev/studio-monitor/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/obarbadev/studio-monitor/tree/v0.1.0
+
+[0.2.0]: https://github.com/obarbadev/studio-monitor/compare/v0.1.3...v0.2.0

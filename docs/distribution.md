@@ -63,8 +63,8 @@ usuário. No Windows são necessários executáveis nativos .exe disponíveis no
 ou nos overrides STUDIO_CLAUDE_PATH, STUDIO_CODEX_PATH e STUDIO_AGY_PATH; wrappers
 .cmd não são executados pelo Studio. Para templates com hooks e statusline, instale
 Git Bash e Python 3 e confira que `python3` funciona no ambiente desses programas.
-O login Codex/AGY pelo botão abre Terminal no macOS; outros sistemas mostram o
-comando para login manual. Validação por empacotamento não equivale a testar uma
+O login Codex/AGY pelo botão abre Terminal no macOS e PowerShell no Windows;
+em Linux, o aplicativo informa o comando para login manual. Validação por empacotamento não equivale a testar uma
 conta real em cada plataforma.
 
 ## Licença e origem

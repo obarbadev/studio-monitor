@@ -102,3 +102,7 @@ test('shows slash command output and informational hook feedback in the chat',as
 test('publishes stopping immediately and only clears it after the execution ends',async t=>{
  let entered,release;const ready=new Promise(r=>entered=r),gate=new Promise(r=>release=r);const {engine}=await fixture(t,({options})=>(async function*(){entered();await gate;yield {type:'result',is_error:false,result:'Done'};})());const pending=engine.send('Work');await ready;engine.stop();assert.equal(engine.state.stopping,true);assert.equal(engine.state.busy,true);assert.equal(engine.routeController.signal.aborted,true);release();await pending;assert.equal(engine.state.stopping,false);assert.equal(engine.state.busy,false);assert.equal(engine.state.runStatus,'interrupted');
 });
+
+test('changes account fallback for future sends while preserving the current Claude account retry snapshot',async t=>{
+ let entered,release,calls=0;const ready=new Promise(r=>entered=r),gate=new Promise(r=>release=r);const {engine}=await fixture(t,()=> (async function*(){calls++;if(calls===1){entered();await gate;yield {type:'rate_limit_event',rate_limit_info:{status:'rejected'}};}else yield {type:'result',is_error:false,result:'Finished on backup'};})());const backup=await engine.addAccount('Backup');backup.loggedIn=true;const pending=engine.send('Work');await ready;await engine.configure({autoFallback:false});release();await pending;assert.equal(calls,2);assert.equal(engine.state.autoFallback,false);assert.equal(engine.state.activeAccountId,backup.id);
+});

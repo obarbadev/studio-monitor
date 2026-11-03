@@ -26,3 +26,9 @@
 @media(prefers-reduced-motion:reduce){.send-button.stopping svg{animation:none}}
 
 .brand-icon>img{width:100%;height:100%;object-fit:contain;border-radius:inherit}
+
+.native-accounts{display:grid;gap:18px}.account-provider-tabs{margin-bottom:20px}.native-add-account{padding:20px;display:flex;align-items:end;gap:16px}.native-add-account label{display:grid;gap:8px;flex:1}.native-account-card{padding:22px;display:grid;gap:14px}.native-account-card header{display:flex;align-items:center;gap:8px}.native-account-card h2{font-size:19px}.native-quota{display:grid;gap:14px}.native-quota>small{color:var(--tone-8)}.quota-window{display:grid;gap:7px;font-size:11px}.quota-window>div{display:flex;justify-content:space-between;gap:8px}.quota-window small{color:var(--tone-8);font-size:10px}.quota-window .quota-track{height:5px;background:var(--tone-4);border-radius:4px;overflow:hidden}.quota-track i{display:block;background:var(--tone-11);height:100%;transition:width .3s}.native-usage h3{font-size:12px;margin:16px}.native-usage>.native-quota{padding:0 16px 16px}
+
+.native-account-card{min-width:0}.native-account-card .button-group{flex-wrap:wrap}.native-account-card header{min-width:0}.native-account-card .quota-window>div{flex-wrap:wrap}.native-account-card .native-quota{min-width:0}.native-accounts .library-intro{flex-wrap:wrap}.native-accounts .library-intro>div{flex:1;min-width:240px}
+
+.native-accounts input[type=checkbox]{accent-color:var(--tone-12)}

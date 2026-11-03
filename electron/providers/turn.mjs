@@ -1,15 +1,16 @@
+import {nativeAccountEnvironment,availableNativeAccounts} from './accounts.mjs';
 import {limitFailure,handoffPrompt} from './routing.mjs';
 import {randomUUID} from 'node:crypto';
 import {providerEnvironment,PROVIDERS} from './catalog.mjs';
 import {redactProviderError,nativeArguments} from './process.mjs';
 import {normalizeNativeEvent} from './events.mjs';
-export async function sendNativeTurn(engine,text,{continuation=false}={}){
+async function sendNativeAttempt(engine,text,{continuation=false,account=null,displayText=text}={}){
  const state=engine.state,provider=state.provider,status=state.providers?.[provider];
  if(!status?.available||!status.binary)throw new Error(`${PROVIDERS[provider].name} não foi encontrado. Verifique a conexão.`);
  if(!status.loggedIn)throw new Error(`Conecte o login do ${PROVIDERS[provider].name} na seção Conexões.`);
  if(state.sessionId&&state.sessionProvider!==provider)throw new Error('Esta sessão pertence a outro executor. Inicie uma nova conversa.');
- state.busy=true;state.runStatus='running';state.mainTool=null;engine.controller=new AbortController();if(!continuation)state.messages.push({id:randomUUID(),role:'user',text:text.trim(),time:Date.now()});
- const reply={id:randomUUID(),role:'assistant',text:'',time:Date.now(),account:PROVIDERS[provider].name};state.messages.push(reply);engine.publish();
+ state.busy=true;state.runStatus='running';state.mainTool=null;engine.controller=new AbortController();if(!continuation)state.messages.push({id:randomUUID(),role:'user',text:displayText.trim(),time:Date.now()});
+ const reply={id:randomUUID(),role:'assistant',text:'',time:Date.now(),account:account?.name||PROVIDERS[provider].name};state.messages.push(reply);engine.publish();
  let failure=null,limitWarning=null,finished=false;const parts=new Map(),tools=new Map(),activeTools=new Map();
  try{
   let request=text;
@@ -25,7 +26,7 @@ export async function sendNativeTurn(engine,text,{continuation=false}={}){
   state.runtimeCatalog={source:'studio-adapter',skills:project.skills,agents:project.roles.map(r=>r.name),commands:project.skills,plugins:[],updatedAt:Date.now()};
   engine.event(`Executando com ${PROVIDERS[provider].name}.`);
   const options={cwd:state.project.path,model:state.model,effort:state.effort||'default',sessionId:state.sessionId};
-  const env=providerEnvironment(provider,engine.baseEnv);
+  const env=account?nativeAccountEnvironment(account,engine.baseEnv):providerEnvironment(provider,engine.baseEnv);
   const args=nativeArguments(provider,options);if(engine.teamBridge&&provider==='codex')args.splice(args.length-1,0,...engine.teamBridge.codexArgs());
   if(engine.teamBridge&&provider==='gemini')args.push(...await engine.teamBridge.agyArgs());
   engine.current=engine.nativeRunner({binary:status.binary,args,input:provider==='gemini'?JSON.stringify({event:'user',message:{content:project.prompt}})+'\n':project.prompt,cwd:state.project.path,env,signal:engine.controller.signal});
@@ -33,7 +34,7 @@ export async function sendNativeTurn(engine,text,{continuation=false}={}){
    for(const event of normalizeNativeEvent(provider,row,{roles:project.roles,tools})){
     if(event.type==='session'){
      if(typeof event.id!=='string'||!/^[\w-]{1,128}$/.test(event.id))throw new Error('O executor informou uma sessão inválida.');
-     state.sessionId=event.id;state.sessionProvider=provider;if(provider==='gemini')state.sessionRuntime='agy';state.sessionMetrics={...state.sessionMetrics,model:event.model||state.sessionMetrics?.model||state.model||'Padrão do executor',provider,requestedEffort:state.effort||'default',updatedAt:Date.now()};
+     state.sessionId=event.id;state.sessionProvider=provider;if(provider==='gemini')state.sessionRuntime='agy';state.sessionMetrics={...state.sessionMetrics,model:event.model||state.sessionMetrics?.model||state.model||'Padrão do executor',provider,accountId:account?.id||null,accountName:account?.name||PROVIDERS[provider].name,requestedEffort:state.effort||'default',updatedAt:Date.now()};
     }else if(event.type==='text'){const previous=parts.get(event.id)||'';parts.set(event.id,event.delta?previous+event.text:event.text);reply.text=[...parts.values()].filter(Boolean).join('\n\n');}
     else if(event.type==='final-text'){reply.text=event.text;}
     else if(event.type==='tool'){if(event.status==='running')activeTools.set(event.id,event.name);else activeTools.delete(event.id);state.mainTool=[...activeTools.values()].at(-1)||null;engine.event(`${PROVIDERS[provider].name} · ${event.name}${event.status==='error'?' · falhou':''}`,event.status==='error'?'tool-error':'tool');}
@@ -59,4 +60,23 @@ export async function sendNativeTurn(engine,text,{continuation=false}={}){
   state.runStatus=aborted?'interrupted':['error','limited'].includes(state.runStatus)?state.runStatus:'idle';state.messages=state.messages.filter(m=>m.role!=='assistant'||m.text);
   engine.event(aborted?'Execução interrompida. O histórico foi preservado.':state.runStatus==='error'?'Execução encerrada com erro. Consulte a atividade.':'Agente principal aguardando sua próxima mensagem.');await engine.save();engine.publish();
  }
+}
+
+export async function sendNativeTurn(engine,text,{continuation=false}={}){
+ const state=engine.state,provider=state.provider,profiles=(state.nativeAccounts||[]).filter(a=>a.provider===provider);
+ if(!profiles.length)return sendNativeAttempt(engine,text,{continuation});
+ const accountFallback=state.nativeAutoFallback?.[provider]!==false;const attempted=new Set();let account=engine.nativeAccounts.selected(provider),prompt=text,continued=continuation;
+ while(account){
+  attempted.add(account.id);
+  if(state.sessionId&&state.nativeSessionAccountId!==account.id){prompt=handoffPrompt(state,text,state.nativeSessionAccountId||'perfil anterior',account.name);state.sessionId=null;state.nativeContextHash=null;state.sessionMetrics=null;}
+  state.nativeSessionAccountId=account.id;state.selectedNativeAccounts??={};state.selectedNativeAccounts[provider]=account.id;
+  await sendNativeAttempt(engine,prompt,{continuation:continued,account,displayText:text});continued=true;
+  if(engine.routeController?.signal.aborted||state.runStatus!=='limited')break;
+  const modelKey=state.model||'__default__';const reset=provider==='codex'?account.usage?.windows.filter(w=>w.utilization>=100&&Date.parse(w.resetsAt)>Date.now()).map(w=>Date.parse(w.resetsAt)):null;const until=reset?.length?Math.max(...reset):Date.now()+5*60000;if(provider==='codex')account.cooldownUntil=until;else{account.modelCooldowns??={};account.modelCooldowns[modelKey]=until;}
+  if(!accountFallback)break;
+  const next=availableNativeAccounts(state,provider,state.model).find(a=>!attempted.has(a.id));if(!next)break;
+  engine.event(`Fallback de conta ${PROVIDERS[provider].name}: ${account.name} → ${next.name}. Preparando uma nova sessão com contexto parcial.`,'fallback');prompt=handoffPrompt(state,text,account.name,next.name);state.sessionId=null;state.nativeContextHash=null;state.sessionMetrics=null;account=next;
+ }
+ if(!account){state.runStatus='limited';state.lastRunFailure={provider,kind:'limited',message:'Nenhuma conta disponível para o modelo escolhido.'};engine.event(state.lastRunFailure.message,'warning');}
+ engine.emit('native-usage-refresh',provider);
 }
