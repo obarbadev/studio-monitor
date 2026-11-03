@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "id": "game-studios",
+  "name": "Game Studios · Donchitos",
+  "version": "1.2.0",
+  "description": "Estúdio de jogos com diretores, especialistas de engine, skills de produção e validação. Snapshot oficial incluído no aplicativo.",
+  "category": "Jogos",
+  "author": "Donchitos",
+  "license": "MIT",
+  "source": {
+    "url": "https://github.com/Donchitos/Claude-Code-Game-Studios",
+    "commit": "05ad7c8a5b8aa2aa86bbd3439ae7cf7295cac418"
+  },
+  "entrypoint": "/start",
+  "requirements": [
+    "Claude Code",
+    "Git",
+    "Python 3",
+    "Bash"
+  ],
+  "notes": [
+    "Agentes e skills herdam o modelo escolhido na sessão; o template não fixa famílias ou versões.",
+    "No Studio, os papéis podem usar provedores diferentes e fallback configurável por projeto.",
+    "Snapshot original preservado no aplicativo; na instalação, o Studio adapta a seleção de modelos e acrescenta telemetria.",
+    "A statusline mostra contexto e andamento do projeto; a cota da conta é uma medição separada."
+  ],
+  "suggestedCommands": [
+    "/start",
+    "/project-stage-detect",
+    "/brainstorm"
+  ],
+  "monitor": {
+    "defaultRigor": "minimal",
+    "defaultStage": "Concept",
+    "stageRules": [
+      {
+        "stage": "Systems Design",
+        "exists": "design/gdd/systems-index.md"
+      },
+      {
+        "stage": "Technical Setup",
+        "configKey": "engine.name"
+      },
+      {
+        "stage": "Pre-Production",
+        "directory": "docs/architecture",
+        "namePrefix": "adr-",
+        "extensions": [
+          "md"
+        ],
+        "minimum": 1
+      },
+      {
+        "stage": "Production",
+        "sourceDirectories": {
+          "default": "src",
+          "configKey": "engine.name",
+          "choices": {
+            "unity": "Assets",
+            "unreal": "Source"
+          }
+        },
+        "extensions": [
+          "gd",
+          "cs",
+          "cpp",
+          "h",
+          "py",
+          "rs",
+          "lua",
+          "tscn",
+          "tres"
+        ],
+        "minimum": 10
+      }
+    ],
+    "workflowProgress": {
+      "configKey": "modes.workflow",
+      "fallbackToRigor": true,
+      "value": "minimal",
+      "label": "Minimal",
+      "emptyLabel": "brief"
+    }
+  },
+  "modelPolicy": {
+    "mode": "inherit-session",
+    "version": 1
+  },
+  "execution": {
+    "fallbackOrder": [
+      "claude",
+      "codex",
+      "gemini"
+    ],
+    "maxParallelAgents": 3,
+    "agentDefaults": {
+      "provider": "inherit",
+      "model": "inherit"
+    },
+    "delegation": "studio-mcp-when-available"
+  }
+}

@@ -1,0 +1,6 @@
+project.local.yaml
+.studio/runtime/
+.studio/install.lock
+.env
+.env.*
+!.env.example

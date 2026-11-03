@@ -1,0 +1,95 @@
+{
+  "name": "agents-monitor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Centro de controle local para projetos, equipes e templates de agentes",
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron . --dev\"",
+    "build": "tsc --noEmit && vite build",
+    "start": "electron .",
+    "test": "node --test tests/*.test.mjs",
+    "pack": "npm run build && electron-builder --dir",
+    "dist:mac": "npm run build && electron-builder --mac dmg zip --publish never",
+    "test:ui": "npm run build && electron tests/electron-smoke.mjs",
+    "dist:win": "npm run build && electron-builder --win nsis zip --x64 --publish never",
+    "release:checksums": "node scripts/checksums.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.316",
+    "@xyflow/react": "^12.12.1",
+    "lucide-react": "1.66.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "yaml": "^2.9.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.2.1",
+    "concurrently": "10.0.6",
+    "electron": "45.2.1",
+    "electron-builder": "26.18.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "wait-on": "9.5.1"
+  },
+  "build": {
+    "appId": "software.barba.agents-monitor",
+    "productName": "Studio Monitor",
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "templates/**/*",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md"
+    ],
+    "asarUnpack": [
+      "node_modules/@anthropic-ai/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "identity": null
+    },
+    "directories": {
+      "output": "release"
+    },
+    "artifactName": "Studio-Monitor-${version}-${os}-${arch}.${ext}",
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "publish": null
+  },
+  "author": "Barba Software",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/obarbadev/studio-monitor.git"
+  },
+  "homepage": "https://github.com/obarbadev/studio-monitor",
+  "bugs": {
+    "url": "https://github.com/obarbadev/studio-monitor/issues"
+  },
+  "engines": {
+    "node": ">=24"
+  }
+}

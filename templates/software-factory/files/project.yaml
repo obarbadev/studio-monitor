@@ -1,0 +1,17 @@
+schema_version: 1
+framework:
+  id: software-factory
+  version: 0.1.0
+project:
+  name: ""
+  domain: software
+  stage: Discovery
+stack:
+  language: ""
+  framework: ""
+  runtime: ""
+modes:
+  rigor: minimal
+  automation: guided
+quality:
+  evidence_required: true

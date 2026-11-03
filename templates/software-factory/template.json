@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "id": "software-factory",
+  "name": "Fábrica de Software",
+  "version": "0.2.0",
+  "description": "Time de produto, arquitetura, engenharia, qualidade, segurança e entrega. Adaptável a aplicações web, mobile, APIs e serviços.",
+  "category": "Software",
+  "author": "Studio Monitor",
+  "license": "MIT",
+  "source": {
+    "inspiredBy": "https://github.com/Donchitos/Claude-Code-Game-Studios",
+    "baseCommit": "05ad7c8a5b8aa2aa86bbd3439ae7cf7295cac418"
+  },
+  "entrypoint": "/start",
+  "requirements": [
+    "Claude Code",
+    "Git",
+    "Python 3",
+    "Bash"
+  ],
+  "notes": [
+    "Agentes e skills herdam o modelo escolhido na sessão; o template não fixa famílias ou versões.",
+    "No Studio, os papéis podem usar provedores diferentes e fallback configurável por projeto.",
+    "A stack é definida por projeto; o template não instala frameworks nem muda o código de negócio.",
+    "O agente principal é o interlocutor e coordena as especialidades."
+  ],
+  "suggestedCommands": [
+    "/start",
+    "/project-status",
+    "/requirements"
+  ],
+  "monitor": {
+    "defaultRigor": "minimal",
+    "defaultStage": "Discovery",
+    "stageRules": []
+  },
+  "modelPolicy": {
+    "mode": "inherit-session",
+    "version": 1
+  },
+  "execution": {
+    "fallbackOrder": [
+      "claude",
+      "codex",
+      "gemini"
+    ],
+    "maxParallelAgents": 3,
+    "agentDefaults": {
+      "provider": "inherit",
+      "model": "inherit"
+    },
+    "delegation": "studio-mcp-when-available"
+  }
+}
