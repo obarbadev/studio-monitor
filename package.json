@@ -1,6 +1,6 @@
 {
   "name": "agents-monitor",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Centro de controle local para projetos, equipes e templates de agentes",
   "type": "module",
@@ -80,7 +80,7 @@
     "publish": null
   },
   "author": "Barba Software",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/obarbadev/studio-monitor.git"

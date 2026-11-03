@@ -73,3 +73,9 @@ A licença da aplicação está em LICENSE e package.json. O snapshot Donchitos 
 template de fábrica de software mantêm seus arquivos MIT independentes e os
 créditos em THIRD_PARTY_NOTICES.md. Histórico e credenciais de execução ficam no
 diretório de dados do aplicativo, fora da árvore publicada.
+
+A versão 0.1.1 usa MIT para o aplicativo. Na publicação inicial, o GitHub Actions
+foi impedido de iniciar por bloqueio de cobrança na conta. Os instaladores dessa
+versão foram gerados localmente no macOS; o Windows é um cross-build e precisa
+de validação real no Windows. O workflow permanece disponível para builds nativos
+quando a conta for liberada.
